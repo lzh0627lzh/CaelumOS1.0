@@ -1,0 +1,13 @@
+{
+    "name":{
+        "zh-CN":"猜数字",
+        "en-US":"Guess"
+    },
+    "bin":{
+        "zh-CN":"Guess_Chinese.exe",
+        "en-US":"Guess_English.exe"
+    },
+    "version":"1.0.0",
+    "category":"Games",
+    "author":"lzh"
+}

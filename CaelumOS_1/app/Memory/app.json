@@ -1,0 +1,13 @@
+{
+    "name":{
+        "zh-CN":"记忆游戏",
+        "en-US":"Memory Game"
+    },
+    "bin":{
+        "zh-CN":"Memory_Chinese.exe",
+        "en-US":"Memory_English.exe"
+    },
+    "version":"1.0.0",
+    "category":"Games",
+    "author":"lzh"
+}

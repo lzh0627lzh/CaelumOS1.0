@@ -1,0 +1,13 @@
+{
+    "name":{
+        "zh-CN":"加密字符串",
+        "en-US":"Encrypt String"
+    },
+    "bin":{
+        "zh-CN":"Encrypt_Chinese.exe",
+        "en-US":"Encrypt_English.exe"
+    },
+    "version":"1.0.0",
+    "category":"Tools",
+    "author":"lzh"
+}
