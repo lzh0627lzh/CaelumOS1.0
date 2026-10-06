@@ -2,12 +2,26 @@
 #include <filesystem>
 #include <nlohmann/json.hpp>
 #include <windows.h>
-#define CAELUM_VERSION "V_1.4(1400.2912)"
+#define CAELUM_VERSION "V_1.4(1400.4812)"
 using namespace std;
 namespace fs = std::filesystem;
 using json = nlohmann::json;
-
 const int MAX_APP = 20;
+
+HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+
+void set_full_console_color(WORD attr)
+{
+    CONSOLE_SCREEN_BUFFER_INFO info;
+    GetConsoleScreenBufferInfo(hConsole, &info);
+    COORD start = {0,0};
+    DWORD total = info.dwSize.X * info.dwSize.Y;
+    DWORD written;
+    FillConsoleOutputAttribute(hConsole, attr, total, start, &written);
+    FillConsoleOutputCharacter(hConsole, ' ', total, start, &written);
+    SetConsoleTextAttribute(hConsole, attr);
+}
+
 struct AppItem {
     string name_zh;
     string name_en;
@@ -18,7 +32,6 @@ struct AppItem {
     string author;
     string dir_path;
 };
-
 AppItem app_db[MAX_APP];
 int app_count = 0;
 
@@ -50,7 +63,6 @@ void scan_app_folder() {
 
 string s, a[105];
 int lan, n, number_v = 1;
-HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 
 namespace cpu {
 void Time() {
@@ -60,7 +72,6 @@ void Time() {
     printf("%04d-%02d-%02d ", lt.tm_year + 1900, lt.tm_mon + 1, lt.tm_mday);
     printf("%02d:%02d:%02d\n", lt.tm_hour, lt.tm_min, lt.tm_sec);
 }
-
 void System_Exit() {
     SetConsoleTextAttribute(hConsole, 0x09);
     if (lan == 1) {
@@ -72,35 +83,37 @@ void System_Exit() {
     Sleep(1000);
     exit(1);
 }
-
 void Help() {
     if (lan == 1) {
         SetConsoleTextAttribute(hConsole, 0x0E);
         printf("====命令帮助====\n");
-        printf("app                打开简易应用列表\n");
-        printf("store              打开应用中心\n");
-        printf("time               查看系统时间\n");
-        printf("clean              清屏\n");
-        printf("color 0F           修改控制台文字颜色\n");
-        printf("system information 查看系统信息\n");
-        printf("system changelog   查看更新日志\n");
+        printf("app                 打开简易应用列表\n");
+        printf("store               打开应用中心\n");
+        printf("time                查看系统时间\n");
+        printf("clean               清屏\n");
+        printf("color 0F            修改后续输出文字颜色(临时)\n");
+        printf("theme 17            修改整个终端背景+文字(永久保存)\n");
+        printf("system information  查看系统信息\n");
+        printf("system changelog    查看更新日志\n");
         printf("exit                关闭Caelum OS\n");
+        printf("todo                打开待办事项列表\n");
         SetConsoleTextAttribute(hConsole, 0x07);
     } else {
         SetConsoleTextAttribute(hConsole, 0x0E);
         printf("===============Command Help===============\n");
-        printf("app                open simple app list\n");
-        printf("store              open app center\n");
-        printf("time               show current time\n");
-        printf("clean              clear screen\n");
-        printf("color 0F           change console color\n");
-        printf("system information view system information\n");
-        printf("system changelog   view changelog\n");
+        printf("app                 open simple app list\n");
+        printf("store               open app center\n");
+        printf("time                show current time\n");
+        printf("clean               clear screen\n");
+        printf("color 0F            change following text color(temp)\n");
+        printf("theme 17            change whole console bg+fg(saved)\n");
+        printf("system information  view system information\n");
+        printf("system changelog    view changelog\n");
         printf("exit                shutdown Caelum OS\n");
+        printf("todo                open todo list\n");
         SetConsoleTextAttribute(hConsole, 0x07);
     }
 }
-
 void Color() {
     if (number_v < 2) {
         SetConsoleTextAttribute(hConsole, 0x0C);
@@ -116,6 +129,43 @@ void Color() {
     }
 }
 
+void Theme()
+{
+    if(number_v < 2)
+    {
+        SetConsoleTextAttribute(hConsole,0x0C);
+        if(lan == 1)
+            printf("用法：theme 17 （十六进制颜色码，高位背景，低位前景）\n");
+        else
+            printf("Usage: theme 17 (hex code, high‑4 background, low‑4 foreground)\n");
+        SetConsoleTextAttribute(hConsole,0x07);
+        return;
+    }
+    int c;
+    sscanf(a[2].c_str(),"%x",&c);
+    WORD attr = (WORD)c;
+    set_full_console_color(attr);
+
+    //保存进color.json
+    json j_out;
+    j_out["console_color"] = (int)attr;
+    ofstream fout("../system/color.json");
+    if(!fout.is_open())
+    {
+        SetConsoleTextAttribute(hConsole,0x0C);
+        if(lan ==1) printf("保存颜色配置失败！\n");
+        else printf("Failed saving color config!\n");
+        SetConsoleTextAttribute(hConsole,0x07);
+        return;
+    }
+    fout << j_out.dump(4);
+    fout.close();
+    SetConsoleTextAttribute(hConsole,0x0A);
+    if(lan ==1) printf("主题颜色已经设置并保存！\n");
+    else printf("Theme color applied and saved!\n");
+    SetConsoleTextAttribute(hConsole,0x07);
+}
+
 void System_Information() {
     if (lan == 1) {
         printf("系统名称：Caelum OS 1（天穹）\n");
@@ -129,7 +179,6 @@ void System_Information() {
         printf("Programming Language: C++\n");
     }
 }
-
 void System_Changelog() {
     if (lan == 1) {
         printf("1. 2026/9/26 Caelum OS 1 V_1.0(1000.0000)发布\n");
@@ -145,6 +194,7 @@ void System_Changelog() {
         printf("11. 2026/10/2 T13004632 功能补丁发布，新增加密字符串应用\n");
         printf("12. 2026/10/05 Caelum OS 1 V_1.4(1400.0000)发布，新增应用中心store，增加扫描防御\n");
         printf("13. 2026/10/06 T14002912 功能补丁发布，新增待办事项列表功能，修复部分bug\n");
+        printf("14. 2016/10/06 T14004812 功能补丁发布，完善待办事项功能\n");
     } else {
         printf("1. 2026/9/26 Caelum OS 1 V_1.0(1000.0000) released\n");
         printf("2. 2026/9/26 T10002080 feature patch released, several new commands added\n");
@@ -154,14 +204,14 @@ void System_Changelog() {
         printf("6. 2026/9/28 Caelum OS 1 V_1.2(1200.0000) released, modified underlying code, introduced registry‑like app list\n");
         printf("7. 2026/9/28 T12002819 feature patch released, merged launch-app command and game-list command\n");
         printf("8. 2026/9/28 T12005715 Feature Patch released, one new application added\n");
-        printf("9. 2026/10/2 Caelum OS 1 V_1.3(1300.0000) released, underlying code modularized for self-creation\n");
-        printf("10. 2026/10/2 S13002832 security patch released, users can add applications with space-containing filenames\n");
-        printf("11. 2026/10/2 T13004632 Function patch released, added encrypted-string application\n");
+        printf("9. 2026/10/2 Caelum OS 1 V_1.3(1300.0000) released, underlying code modularized for self‑creation\n");
+        printf("10. 2026/10/2 S13002832 security patch released, users can add applications with space‑containing filenames\n");
+        printf("11. 2026/10/2 T13004632 Function patch released, added encrypted‑string application\n");
         printf("12. 2026/10/05 Caelum OS 1 V_1.4(1400.0000) released, Add App Center(store), add scan defence\n");
-        printf("13. 2026/10/06 T14002912 Feature Patch released, added To-Do List feature, fixed some bugs\n");
+        printf("13. 2026/10/06 T14002912 Feature Patch released, added To‑Do List feature, fixed some bugs\n");
+        printf("14. 2016/10/06 T14004812 Feature Patch released, improved To‑Do List feature\n");
     }
 }
-
 void Store() {
     int sel;
     while (true) {
@@ -188,8 +238,11 @@ void Store() {
             string dummy;
             getline(cin, dummy);
         }
-        if (sel == 0)
+        if (sel == 0){
+            system("cls");
+            SetConsoleTextAttribute(hConsole, 0x07);
             break;
+        }
         if (sel < 1 || sel > app_count) {
             SetConsoleTextAttribute(hConsole, 0x0C);
             if (lan == 1)
@@ -235,7 +288,6 @@ void Store() {
         }
     }
 }
-
 void App() {
     SetConsoleTextAttribute(hConsole, 0x02);
     for (int i = 0; i < app_count; i++) {
@@ -270,7 +322,6 @@ void App() {
         SetConsoleTextAttribute(hConsole, 0x07);
     }
 }
-
 void to_do_list(int lan) {
     json j;
     ifstream fin("../system/todo.json");
@@ -296,7 +347,7 @@ void to_do_list(int lan) {
             }
         }
         SetConsoleTextAttribute(hConsole, 0x0D);
-        printf("\n1.添加新事项\n2.更改事项完成情况\n3.清空所有事项\n4.打印所有事项\n0.退出\n> ");
+        printf("\n1.添加新事项\n2.更改事项完成情况\n3.清空所有事项\n4.打印所有事项\n5.删除事项\n6.编辑事项\n0.退出\n> ");
         SetConsoleTextAttribute(hConsole, 0x07);
         while (true) {
             scanf("%d", &n);
@@ -377,7 +428,64 @@ void to_do_list(int lan) {
                         printf("%d. [ ] %s\n", i + 1, text.c_str());
                     }
                 }
-            } else if (n == 0) {
+            } else if (n == 5) {
+                SetConsoleTextAttribute(hConsole, 0x09);
+                printf("请输入要删除的事项编号：\n");
+                SetConsoleTextAttribute(hConsole, 0x07);
+                scanf("%d", &n);
+                {
+                    string dummy;
+                    getline(cin, dummy);
+                }
+                if (n >= 1 && n <= j.size()) {
+                    j.erase(j.begin() + n - 1);
+                    ofstream fout("../system/todo.json");
+                    if (!fout.is_open()) {
+                        SetConsoleTextAttribute(hConsole, 0x0C);
+                        printf("保存文件失败!\n");
+                        SetConsoleTextAttribute(hConsole, 0x07);
+                        return;
+                    }
+                    fout << j.dump(4);
+                    fout.close();
+                    SetConsoleTextAttribute(hConsole, 0x0A);
+                    printf("事项已删除!\n");
+                    SetConsoleTextAttribute(hConsole, 0x07);
+                } else {
+                    SetConsoleTextAttribute(hConsole, 0x0C);
+                    printf("无效的编号\n");
+                    SetConsoleTextAttribute(hConsole, 0x07);
+                }
+            } else if(n == 6){
+                SetConsoleTextAttribute(hConsole, 0x09);
+                printf("请输入要编辑的事项编号：\n");
+                SetConsoleTextAttribute(hConsole, 0x07);
+                scanf("%d",&n);
+                {
+                    string dummy;
+                    getline(cin, dummy);
+                }
+                if(n >= 1 && n <= j.size()){
+                    SetConsoleTextAttribute(hConsole, 0x09);
+                    printf("请输入新的事项内容：\n");
+                    SetConsoleTextAttribute(hConsole, 0x07);
+                    string new_item;
+                    getline(cin,new_item);
+                    j[n-1][0] = new_item;
+                    ofstream fout("../system/todo.json");
+                    if (!fout.is_open()) {
+                        SetConsoleTextAttribute(hConsole, 0x0C);
+                        printf("保存文件失败!\n");
+                        SetConsoleTextAttribute(hConsole, 0x07);
+                        return;
+                    }
+                    fout << j.dump(4);
+                    fout.close();
+                    SetConsoleTextAttribute(hConsole, 0x0A);
+                    printf("事项已编辑!\n");
+                    SetConsoleTextAttribute(hConsole, 0x07);
+                }
+            }else if (n == 0) {
                 system("cls");
                 SetConsoleTextAttribute(hConsole, 0x07);
                 return;
@@ -385,7 +493,7 @@ void to_do_list(int lan) {
         }
     } else if (lan == 2) {
         SetConsoleTextAttribute(hConsole, 0x0B);
-        printf("====To-Do List====\n");
+        printf("====To‑Do List====\n");
         for (int i = 0; i < j.size(); i++) {
             string text = j[i][0].get<string>();
             bool done = j[i][1].get<bool>();
@@ -399,7 +507,7 @@ void to_do_list(int lan) {
         }
         while (true) {
             SetConsoleTextAttribute(hConsole, 0x0D);
-            printf("\n1.Add new item\n2.Toggle item completion\n3.Clear all items\n4.Print all items\n0.Exit\n> ");
+            printf("\n1.Add new item\n2.Toggle item completion\n3.Clear all items\n4.Print all items\n5.Delete item\n6.Edit item\n0.Exit\n> ");
             SetConsoleTextAttribute(hConsole, 0x07);
             scanf("%d", &n);
             {
@@ -479,16 +587,76 @@ void to_do_list(int lan) {
                         printf("%d. [ ] %s\n", i + 1, text.c_str());
                     }
                 }
-            } else if (n == 0) {
+            } else if(n == 5){
+                SetConsoleTextAttribute(hConsole, 0x09);
+                printf("Please enter the item number to delete: \n");
+                SetConsoleTextAttribute(hConsole, 0x07);
+                scanf("%d", &n);
+                {
+                    string dummy;
+                    getline(cin, dummy);
+                }
+                if (n >= 1 && n <= j.size()) {
+                    j.erase(j.begin() + n - 1);
+                    ofstream fout("../system/todo.json");
+                    if (!fout.is_open()) {
+                        SetConsoleTextAttribute(hConsole, 0x0C);
+                        printf("Save file failed!\n");
+                        SetConsoleTextAttribute(hConsole, 0x07);
+                        return;
+                    }
+                    fout << j.dump(4);
+                    fout.close();
+                    SetConsoleTextAttribute(hConsole, 0x0A);
+                    printf("Item deleted!\n");
+                    SetConsoleTextAttribute(hConsole, 0x07);
+                } else {
+                    SetConsoleTextAttribute(hConsole, 0x0C);
+                    printf("Invalid number\n");
+                    SetConsoleTextAttribute(hConsole, 0x07);
+                }
+            }else if(n == 6){
+                SetConsoleTextAttribute(hConsole, 0x09);
+                printf("Please enter the item number to edit: \n");
+                SetConsoleTextAttribute(hConsole, 0x07);
+                scanf("%d", &n);
+                {
+                    string dummy;
+                    getline(cin, dummy);
+                }
+                if (n >= 1 && n <= j.size()) {
+                    SetConsoleTextAttribute(hConsole, 0x09);
+                    printf("Please enter the new item content: \n");
+                    SetConsoleTextAttribute(hConsole, 0x07);
+                    string new_item;
+                    getline(cin, new_item);
+                    j[n-1][0] = new_item;
+                    ofstream fout("../system/todo.json");
+                    if (!fout.is_open()) {
+                        SetConsoleTextAttribute(hConsole, 0x0C);
+                        printf("Save file failed!\n");
+                        SetConsoleTextAttribute(hConsole, 0x07);
+                        return;
+                    }
+                    fout << j.dump(4);
+                    fout.close();
+                    SetConsoleTextAttribute(hConsole, 0x0A);
+                    printf("Item edited!\n");
+                    SetConsoleTextAttribute(hConsole, 0x07);
+                } else {
+                    SetConsoleTextAttribute(hConsole, 0x0C);
+                    printf("Invalid number\n");
+                    SetConsoleTextAttribute(hConsole, 0x07);
+                }
+            }else if (n == 0) {
                 system("cls");
-                SetConsoleTextAttribute(hConsole, 0x07);    
+                SetConsoleTextAttribute(hConsole, 0x07);
                 return;
             }
         }
     }
 }
 } // namespace cpu
-
 namespace other {
 void BIOS() {
     while (true) {
@@ -508,11 +676,23 @@ void BIOS() {
     printf("Language pack download completed.\n");
     return;
 }
-
 void Begin() {
+    //开机读取保存的终端主题颜色
+    {
+        json j_color;
+        ifstream fin("../system/color.json");
+        WORD startup_color = 0x07;
+        if(fin.is_open())
+        {
+            fin >> j_color;
+            startup_color = (WORD)j_color["console_color"].get<int>();
+            fin.close();
+        }
+        set_full_console_color(startup_color);
+    }
+
     std::random_device rd;
     mt19937 rnd(rd());
-    SetConsoleTextAttribute(hConsole, 0x07);
     printf("Starting boot screen...\n");
     Sleep(1234);
     BIOS();
@@ -539,7 +719,6 @@ void Begin() {
     SetConsoleTextAttribute(hConsole, 0x07);
 }
 } // namespace other
-
 int main() {
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
@@ -571,6 +750,8 @@ int main() {
             cpu::Help();
         } else if (a[1] == "color") {
             cpu::Color();
+        } else if (a[1] == "theme") {
+            cpu::Theme();
         } else if (a[1] == "system") {
             if (a[2] == "information" && number_v == 2) {
                 cpu::System_Information();
