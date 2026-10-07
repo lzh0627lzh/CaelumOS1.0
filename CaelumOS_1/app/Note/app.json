@@ -1,0 +1,13 @@
+{
+    "name":{
+        "zh-CN":"记事本",
+        "en-US":"Note"
+    },
+    "bin":{
+        "zh-CN":"Note_Chinese.exe",
+        "en-US":"Note_English.exe"
+    },
+    "version":"1.0.0",
+    "category":"Tools",
+    "author":"lzh"
+}
