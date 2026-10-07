@@ -1,3 +1,9 @@
+//系统将在几天后停止支持!!!
+//system will stop supporting in a few days!!!
+//系统将在几天后停止支持!!!
+//system will stop supporting in a few days!!!
+//系统将在几天后停止支持!!!
+//system will stop supporting in a few days!!!
 #include <bits/stdc++.h>
 #include <filesystem>
 #include <nlohmann/json.hpp>
@@ -10,11 +16,10 @@ const int MAX_APP = 20;
 
 HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 
-void set_full_console_color(WORD attr)
-{
+void set_full_console_color(WORD attr) {
     CONSOLE_SCREEN_BUFFER_INFO info;
     GetConsoleScreenBufferInfo(hConsole, &info);
-    COORD start = {0,0};
+    COORD start = {0, 0};
     DWORD total = info.dwSize.X * info.dwSize.Y;
     DWORD written;
     FillConsoleOutputAttribute(hConsole, attr, total, start, &written);
@@ -63,6 +68,13 @@ void scan_app_folder() {
 
 string s, a[105];
 int lan, n, number_v = 1;
+
+//系统将在几天后停止支持!!!
+//system will stop supporting in a few days!!!
+//系统将在几天后停止支持!!!
+//system will stop supporting in a few days!!!
+//系统将在几天后停止支持!!!
+//system will stop supporting in a few days!!!
 
 namespace cpu {
 void Time() {
@@ -129,39 +141,40 @@ void Color() {
     }
 }
 
-void Theme()
-{
-    if(number_v < 2)
-    {
-        SetConsoleTextAttribute(hConsole,0x0C);
-        if(lan == 1)
+void Theme() {
+    if (number_v < 2) {
+        SetConsoleTextAttribute(hConsole, 0x0C);
+        if (lan == 1)
             printf("用法：theme 17 （十六进制颜色码，高位背景，低位前景）\n");
         else
             printf("Usage: theme 17 (hex code, high‑4 background, low‑4 foreground)\n");
-        SetConsoleTextAttribute(hConsole,0x07);
+        SetConsoleTextAttribute(hConsole, 0x07);
         return;
     }
     int c;
-    sscanf(a[2].c_str(),"%x",&c);
+    sscanf(a[2].c_str(), "%x", &c);
     WORD attr = (WORD)c;
     set_full_console_color(attr);
     json j_out;
     j_out["console_color"] = (int)attr;
     ofstream fout("../system/color.json");
-    if(!fout.is_open())
-    {
-        SetConsoleTextAttribute(hConsole,0x0C);
-        if(lan ==1) printf("保存颜色配置失败！\n");
-        else printf("Failed saving color config!\n");
-        SetConsoleTextAttribute(hConsole,0x07);
+    if (!fout.is_open()) {
+        SetConsoleTextAttribute(hConsole, 0x0C);
+        if (lan == 1)
+            printf("保存颜色配置失败！\n");
+        else
+            printf("Failed saving color config!\n");
+        SetConsoleTextAttribute(hConsole, 0x07);
         return;
     }
     fout << j_out.dump(4);
     fout.close();
-    SetConsoleTextAttribute(hConsole,0x0A);
-    if(lan ==1) printf("主题颜色已经设置并保存！\n");
-    else printf("Theme color applied and saved!\n");
-    SetConsoleTextAttribute(hConsole,0x07);
+    SetConsoleTextAttribute(hConsole, 0x0A);
+    if (lan == 1)
+        printf("主题颜色已经设置并保存！\n");
+    else
+        printf("Theme color applied and saved!\n");
+    SetConsoleTextAttribute(hConsole, 0x07);
 }
 
 void System_Information() {
@@ -236,7 +249,7 @@ void Store() {
             string dummy;
             getline(cin, dummy);
         }
-        if (sel == 0){
+        if (sel == 0) {
             system("cls");
             SetConsoleTextAttribute(hConsole, 0x07);
             break;
@@ -321,6 +334,13 @@ void App() {
     }
 }
 } // namespace cpu
+
+//系统将在几天后停止支持!!!
+//system will stop supporting in a few days!!!
+//系统将在几天后停止支持!!!
+//system will stop supporting in a few days!!!
+//系统将在几天后停止支持!!!
+//system will stop supporting in a few days!!!
 namespace other {
 void BIOS() {
     while (true) {
@@ -341,13 +361,11 @@ void BIOS() {
     return;
 }
 void Begin() {
-    //开机读取保存的终端主题颜色
     {
         json j_color;
         ifstream fin("../system/color.json");
         WORD startup_color = 0x07;
-        if(fin.is_open())
-        {
+        if (fin.is_open()) {
             fin >> j_color;
             startup_color = (WORD)j_color["console_color"].get<int>();
             fin.close();
@@ -383,6 +401,14 @@ void Begin() {
     SetConsoleTextAttribute(hConsole, 0x07);
 }
 } // namespace other
+
+//系统将在几天后停止支持!!!
+//system will stop supporting in a few days!!!
+//系统将在几天后停止支持!!!
+//system will stop supporting in a few days!!!
+//系统将在几天后停止支持!!!
+//system will stop supporting in a few days!!!
+
 int main() {
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
@@ -439,3 +465,9 @@ int main() {
     system("pause");
     return 0;
 }
+//系统将在几天后停止支持!!!
+//system will stop supporting in a few days!!!
+//系统将在几天后停止支持!!!
+//system will stop supporting in a few days!!!
+//系统将在几天后停止支持!!!
+//system will stop supporting in a few days!!!
