@@ -1,10 +1,13 @@
 #include <bits/stdc++.h>
+#include <windows.h>
 using namespace std;
 long long on, down, m = 1;
 int main() {
 	std::random_device rd;
+	SetConsoleOutputCP(CP_UTF8);
+	SetConsoleCP(CP_UTF8);
 	mt19937 rnd(rd());
-	printf("ÇëÊäÈëÏÂÏŞºÍÉÏÏŞ£º");
+	printf("è¯·è¾“å…¥ä¸‹é™å’Œä¸Šé™ï¼š");
 	scanf("%lld%lld", &down, &on); 
 	long long n = rnd() % (on - down + 1) + down;
 	long long in;
@@ -12,13 +15,13 @@ int main() {
 		scanf("%lld", &in);
 		if(in == n) break;
 		if(in > n)
-			printf("´óÁË\n");
+			printf("å¤§äº†\n");
 		else
-			printf("Ğ¡ÁË\n");
+			printf("å°äº†\n");
 		m++;
 	}
-	printf("¹§Ï²³É¹¦£¡£¡£¡\n");
-	printf("×Ü¹²²Â²â´ÎÊı£º%lld\n", m);
+	printf("æ­å–œæˆåŠŸï¼ï¼ï¼\n");
+	printf("æ€»å…±çŒœæµ‹æ¬¡æ•°ï¼š%lld\n", m);
 	system("pause");
 	return 0;
 }

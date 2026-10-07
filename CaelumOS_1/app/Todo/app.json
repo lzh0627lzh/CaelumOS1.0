@@ -1,0 +1,13 @@
+{
+    "name":{
+        "zh-CN":"待办事项",
+        "en-US":"Todo"
+    },
+    "bin":{
+        "zh-CN":"Todo_Chinese.exe",
+        "en-US":"Todo_English.exe"
+    },
+    "version":"1.0.0",
+    "category":"Tools",
+    "author":"lzh"
+}

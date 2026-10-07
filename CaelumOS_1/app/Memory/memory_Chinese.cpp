@@ -5,6 +5,8 @@ using namespace std;
 int a[6],ans = 0;
 
 int main() {
+	SetConsoleOutputCP(CP_UTF8);
+	SetConsoleCP(CP_UTF8);
 	std::random_device rd;
 	mt19937 rnd(rd());
 	for (int i = 1; i <= 5; i++) {
@@ -28,15 +30,15 @@ int main() {
 			}
 		}
 		if(m){
-			printf("¹§Ï²³É¹¦£¡\n");
+			printf("æ­å–œæˆåŠŸï¼\n");
 			ans++;
 		}else{
-			printf("¼ÌÐø¼ÓÓÍ£¡\n");
+			printf("ç»§ç»­åŠ æ²¹ï¼\n");
 		}
 		Sleep(1000);
 		system("cls");
 	}
-	printf("¹²5¹Ø£¬%d¹ØÕýÈ·£¬%d¹Ø´íÎó\n",ans,5 - ans);
+	printf("å…±5å…³ï¼Œ%då…³æ­£ç¡®ï¼Œ%då…³é”™è¯¯\n",ans,5 - ans);
 	system("pause");
 	return 0;
 }

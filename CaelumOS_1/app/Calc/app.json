@@ -1,0 +1,13 @@
+{
+    "name":{
+        "zh-CN":"计算器",
+        "en-US":"Calculator"
+    },
+    "bin":{
+        "zh-CN":"Calc_Chinese.exe",
+        "en-US":"Calc_English.exe"
+    },
+    "version":"1.0.0",
+    "category":"Tools",
+    "author":"lzh"
+}

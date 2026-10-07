@@ -1,4 +1,5 @@
 #include <bits/stdc++.h>
+#include <windows.h>
 #define LEN 100000001
 #define P 100000000001LL
 #define L 32
@@ -111,7 +112,9 @@ void jm(){
 
 int main(){
 	int num;
-	printf("ÇëÊäÈë¼ÓÃÜ×Ö·û´®¸öÊı£º");
+	SetConsoleOutputCP(CP_UTF8);
+	SetConsoleCP(CP_UTF8);
+	printf("è¯·è¾“å…¥åŠ å¯†å­—ç¬¦ä¸²ä¸ªæ•°ï¼š");
 	scanf("%d",&num);
 	for(int i = 1;i <= num;i++)
 		jm();
