@@ -1,10 +1,14 @@
-//系统将在几天后停止支持!!!
-//system will stop supporting in a few days!!!
-//系统将在几天后停止支持!!!
-//system will stop supporting in a few days!!!
-//系统将在几天后停止支持!!!
-//system will stop supporting in a few days!!!
-#include <bits/stdc++.h>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <random>
+#include <cmath>
+#include <string>
+#include <vector>
+#include <algorithm>
+#include <cctype>
+#include <charconv>
+#include <cstdlib>
 #include <filesystem>
 #include <nlohmann/json.hpp>
 #include <windows.h>
@@ -40,41 +44,204 @@ struct AppItem {
 AppItem app_db[MAX_APP];
 int app_count = 0;
 
+bool get_required_string(const json& object, const string& key, string& value) {
+    auto it = object.find(key);
+    if (it == object.end() || !it->is_string())
+        return false;
+    value = it->get<string>();
+    return true;
+}
+
+bool is_safe_executable_name(const string& value) {
+    if (value.empty() || value.find('\0') != string::npos)
+        return false;
+
+    fs::path path(value);
+    if (path.is_absolute() || path.has_root_name() ||
+        path.has_root_directory() || !path.parent_path().empty())
+        return false;
+
+    string extension = path.extension().string();
+    transform(extension.begin(), extension.end(), extension.begin(),
+              [](unsigned char ch) { return static_cast<char>(tolower(ch)); });
+    return extension == ".exe";
+}
+
+bool launch_app(const AppItem& app, const string& executable_name) {
+    if (!is_safe_executable_name(executable_name)) {
+        cerr << "应用程序路径无效 / Invalid application executable path\n";
+        return false;
+    }
+
+    std::error_code ec;
+    fs::path directory = fs::canonical(fs::path(app.dir_path), ec);
+    if (ec) {
+        cerr << "无法访问应用目录 / Cannot access app directory: "
+             << ec.message() << '\n';
+        return false;
+    }
+
+    fs::path executable =
+        fs::canonical(directory / fs::path(executable_name), ec);
+    if (ec || executable.parent_path() != directory ||
+        !fs::is_regular_file(executable, ec) || ec) {
+        cerr << "应用可执行文件不存在或不安全 / App executable is missing or unsafe\n";
+        return false;
+    }
+
+    wstring command_line = L"\"" + executable.wstring() + L"\"";
+    vector<wchar_t> mutable_command_line(command_line.begin(), command_line.end());
+    mutable_command_line.push_back(L'\0');
+
+    STARTUPINFOW startup{};
+    startup.cb = sizeof(startup);
+    PROCESS_INFORMATION process{};
+    if (!CreateProcessW(executable.c_str(), mutable_command_line.data(),
+                        nullptr, nullptr, FALSE, 0, nullptr, directory.c_str(),
+                        &startup, &process)) {
+        cerr << "启动应用失败 / Failed to launch app (Windows error "
+             << GetLastError() << ")\n";
+        return false;
+    }
+
+    CloseHandle(process.hThread);
+    CloseHandle(process.hProcess);
+    return true;
+}
+
+bool load_app(const fs::path& json_path, AppItem& app) {
+    ifstream fin(json_path);
+    if (!fin.is_open()) {
+        cerr << "无法打开应用配置 / Cannot open app config: "
+             << json_path.string() << '\n';
+        return false;
+    }
+
+    json j;
+    try {
+        fin >> j;
+    } catch (const json::exception& e) {
+        cerr << "应用配置 JSON 无效 / Invalid app config JSON: "
+             << json_path.string() << " (" << e.what() << ")\n";
+        return false;
+    }
+
+    if (!j.is_object()) {
+        cerr << "应用配置顶层必须是对象 / App config must be an object: "
+             << json_path.string() << '\n';
+        return false;
+    }
+
+    auto name = j.find("name");
+    auto bin = j.find("bin");
+    if (name == j.end() || !name->is_object() ||
+        bin == j.end() || !bin->is_object() ||
+        !get_required_string(*name, "zh-CN", app.name_zh) ||
+        !get_required_string(*name, "en-US", app.name_en) ||
+        !get_required_string(*bin, "zh-CN", app.bin_zh) ||
+        !get_required_string(*bin, "en-US", app.bin_en) ||
+        !is_safe_executable_name(app.bin_zh) ||
+        !is_safe_executable_name(app.bin_en) ||
+        !get_required_string(j, "version", app.version) ||
+        !get_required_string(j, "category", app.category) ||
+        !get_required_string(j, "author", app.author)) {
+        cerr << "应用配置字段缺失或类型错误 / Missing or invalid app config field: "
+             << json_path.string() << '\n';
+        return false;
+    }
+
+    return true;
+}
+
 void scan_app_folder() {
     app_count = 0;
-    for (auto &entry : fs::directory_iterator("../app")) {
-        if (!entry.is_directory())
-            continue;
-        fs::path jsonpath = entry.path() / "app.json";
-        if (app_count >= MAX_APP)
-            break;
-        ifstream fin(jsonpath);
-        if (!fin.is_open())
-            continue;
-        json j;
-        fin >> j;
-        AppItem &it = app_db[app_count];
-        it.dir_path = entry.path().string();
-        it.name_zh = j["name"]["zh-CN"].get<string>();
-        it.name_en = j["name"]["en-US"].get<string>();
-        it.bin_zh = j["bin"]["zh-CN"].get<string>();
-        it.bin_en = j["bin"]["en-US"].get<string>();
-        it.version = j["version"].get<string>();
-        it.category = j["category"].get<string>();
-        it.author = j["author"].get<string>();
-        app_count++;
+    try {
+        for (const auto& entry : fs::directory_iterator("../app")) {
+            if (!entry.is_directory())
+                continue;
+            if (app_count >= MAX_APP) {
+                cerr << "应用数量超过上限 " << MAX_APP
+                     << " / App limit reached\n";
+                break;
+            }
+
+            AppItem app{};
+            fs::path jsonpath = entry.path() / "app.json";
+            if (!load_app(jsonpath, app))
+                continue;
+            app.dir_path = entry.path().string();
+            app_db[app_count++] = app;
+        }
+    } catch (const fs::filesystem_error& e) {
+        cerr << "扫描应用目录失败 / Failed to scan app directory: "
+             << e.what() << '\n';
     }
 }
 
-string s, a[105];
-int lan, n, number_v = 1;
+int lan;
 
-//系统将在几天后停止支持!!!
-//system will stop supporting in a few days!!!
-//系统将在几天后停止支持!!!
-//system will stop supporting in a few days!!!
-//系统将在几天后停止支持!!!
-//system will stop supporting in a few days!!!
+bool read_integer(const string& prompt, int& value) {
+    cout << prompt;
+    string line;
+    if (!getline(cin, line))
+        return false;
+
+    istringstream input(line);
+    int parsed;
+    char extra;
+    if (!(input >> parsed) || (input >> extra))
+        return false;
+
+    value = parsed;
+    return true;
+}
+
+bool split_command(const string& line, vector<string>& args) {
+    args.clear();
+    string current;
+    bool in_quotes = false;
+    bool token_started = false;
+
+    for (char ch : line) {
+        if (ch == '"') {
+            in_quotes = !in_quotes;
+            token_started = true;
+        } else if (isspace(static_cast<unsigned char>(ch)) && !in_quotes) {
+            if (token_started) {
+                args.push_back(current);
+                current.clear();
+                token_started = false;
+            }
+        } else {
+            current += ch;
+            token_started = true;
+        }
+    }
+
+    if (in_quotes)
+        return false;
+    if (token_started)
+        args.push_back(current);
+    return true;
+}
+
+bool parse_hex_color(const string& text, WORD& color) {
+    const char* first = text.data();
+    const char* last = first + text.size();
+    if (text.size() >= 2 && text[0] == '0' &&
+        (text[1] == 'x' || text[1] == 'X')) {
+        first += 2;
+    }
+    if (first == last)
+        return false;
+
+    unsigned int value = 0;
+    auto result = from_chars(first, last, value, 16);
+    if (result.ec != errc() || result.ptr != last || value > 0xFF)
+        return false;
+    color = static_cast<WORD>(value);
+    return true;
+}
 
 namespace cpu {
 void Time() {
@@ -126,34 +293,31 @@ void Help() {
         SetConsoleTextAttribute(hConsole, 0x07);
     }
 }
-void Color() {
-    if (number_v < 2) {
+void Color(const vector<string>& args) {
+    WORD color;
+    if (args.size() != 2 || !parse_hex_color(args[1], color)) {
         SetConsoleTextAttribute(hConsole, 0x0C);
         if (lan == 1)
-            printf("用法：color 0B\n");
+            printf("用法：color 0B（颜色值必须是 00-FF 的十六进制数）\n");
         else
-            printf("Usage: color 0B\n");
-        SetConsoleTextAttribute(hConsole, 0x07);
-    } else {
-        int c;
-        sscanf(a[2].c_str(), "%x", &c);
-        SetConsoleTextAttribute(hConsole, (WORD)c);
-    }
-}
-
-void Theme() {
-    if (number_v < 2) {
-        SetConsoleTextAttribute(hConsole, 0x0C);
-        if (lan == 1)
-            printf("用法：theme 17 （十六进制颜色码，高位背景，低位前景）\n");
-        else
-            printf("Usage: theme 17 (hex code, high‑4 background, low‑4 foreground)\n");
+            printf("Usage: color 0B (color must be hexadecimal 00-FF)\n");
         SetConsoleTextAttribute(hConsole, 0x07);
         return;
     }
-    int c;
-    sscanf(a[2].c_str(), "%x", &c);
-    WORD attr = (WORD)c;
+    SetConsoleTextAttribute(hConsole, color);
+}
+
+void Theme(const vector<string>& args) {
+    WORD attr;
+    if (args.size() != 2 || !parse_hex_color(args[1], attr)) {
+        SetConsoleTextAttribute(hConsole, 0x0C);
+        if (lan == 1)
+            printf("用法：theme 17（颜色值必须是 00-FF 的十六进制数）\n");
+        else
+            printf("Usage: theme 17 (color must be hexadecimal 00-FF)\n");
+        SetConsoleTextAttribute(hConsole, 0x07);
+        return;
+    }
     set_full_console_color(attr);
     json j_out;
     j_out["console_color"] = (int)attr;
@@ -244,10 +408,16 @@ void Store() {
             printf("\nInput app number for detail; 0 to exit\n> ");
         }
         SetConsoleTextAttribute(hConsole, 0x07);
-        scanf("%d", &sel);
-        {
-            string dummy;
-            getline(cin, dummy);
+        if (!read_integer("", sel)) {
+            if (cin.eof())
+                return;
+            SetConsoleTextAttribute(hConsole, 0x0C);
+            if (lan == 1)
+                printf("请输入有效整数！\n");
+            else
+                printf("Please enter a valid integer.\n");
+            SetConsoleTextAttribute(hConsole, 0x07);
+            continue;
         }
         if (sel == 0) {
             system("cls");
@@ -283,19 +453,21 @@ void Store() {
         }
         SetConsoleTextAttribute(hConsole, 0x07);
         int op;
-        scanf("%d", &op);
-        {
-            string dummy;
-            getline(cin, dummy);
+        if (!read_integer("", op)) {
+            if (cin.eof())
+                return;
+            SetConsoleTextAttribute(hConsole, 0x0C);
+            if (lan == 1)
+                printf("请输入有效整数！\n");
+            else
+                printf("Please enter a valid integer.\n");
+            SetConsoleTextAttribute(hConsole, 0x07);
+            continue;
         }
         if (op == 1) {
-            string run_exe;
-            if (lan == 1)
-                run_exe = app_db[idx].bin_zh;
-            else
-                run_exe = app_db[idx].bin_en;
-            string cmd = "start \"\" \"" + app_db[idx].dir_path + "\\" + run_exe + "\"";
-            system(cmd.c_str());
+            const string& run_exe =
+                lan == 1 ? app_db[idx].bin_zh : app_db[idx].bin_en;
+            launch_app(app_db[idx], run_exe);
         }
     }
 }
@@ -309,21 +481,21 @@ void App() {
         }
     }
     SetConsoleTextAttribute(hConsole, 0x07);
-    scanf("%d", &n);
-    {
-        string dummy;
-        getline(cin, dummy);
+    int n;
+    if (!read_integer("> ", n)) {
+        if (!cin.eof()) {
+            if (lan == 1)
+                printf("请输入有效整数！\n");
+            else
+                printf("Please enter a valid integer.\n");
+        }
+        return;
     }
     if (n >= 1 && n <= app_count) {
         int idx = n - 1;
-        string run_exe;
-        if (lan == 1) {
-            run_exe = app_db[idx].bin_zh;
-        } else {
-            run_exe = app_db[idx].bin_en;
-        }
-        string cmd = "start \"\" \"" + app_db[idx].dir_path + "\\" + run_exe + "\"";
-        system(cmd.c_str());
+        const string& run_exe =
+            lan == 1 ? app_db[idx].bin_zh : app_db[idx].bin_en;
+        launch_app(app_db[idx], run_exe);
     } else {
         SetConsoleTextAttribute(hConsole, 0x0C);
         if (lan == 1)
@@ -335,17 +507,18 @@ void App() {
 }
 } // namespace cpu
 
-//系统将在几天后停止支持!!!
-//system will stop supporting in a few days!!!
-//系统将在几天后停止支持!!!
-//system will stop supporting in a few days!!!
-//系统将在几天后停止支持!!!
-//system will stop supporting in a few days!!!
 namespace other {
-void BIOS() {
+bool BIOS() {
     while (true) {
         printf("please choose language: 1.Chinese  2.English\n");
-        scanf("%d", &lan);
+        int choice;
+        if (!read_integer("> ", choice)) {
+            if (cin.eof())
+                return false;
+            printf("Please enter 1 or 2.\n");
+            continue;
+        }
+        lan = choice;
         if (lan == 1) {
             printf("OK,you choose Chinese\n");
             break;
@@ -358,17 +531,31 @@ void BIOS() {
     printf("Downloading language pack...\n");
     Sleep(1200);
     printf("Language pack download completed.\n");
-    return;
+    return true;
 }
-void Begin() {
+bool Begin() {
     {
         json j_color;
         ifstream fin("../system/color.json");
         WORD startup_color = 0x07;
         if (fin.is_open()) {
-            fin >> j_color;
-            startup_color = (WORD)j_color["console_color"].get<int>();
-            fin.close();
+            try {
+                fin >> j_color;
+                auto color = j_color.find("console_color");
+                if (j_color.is_object() && color != j_color.end() &&
+                    color->is_number_integer()) {
+                    int value = color->get<int>();
+                    if (value >= 0 && value <= 0xFF)
+                        startup_color = static_cast<WORD>(value);
+                    else
+                        cerr << "主题颜色超出范围，使用默认值 / Theme color out of range; using default\n";
+                } else {
+                    cerr << "主题配置格式无效，使用默认值 / Invalid theme config; using default\n";
+                }
+            } catch (const json::exception& e) {
+                cerr << "主题 JSON 无效，使用默认值 / Invalid theme JSON; using default: "
+                     << e.what() << '\n';
+            }
         }
         set_full_console_color(startup_color);
     }
@@ -377,11 +564,8 @@ void Begin() {
     mt19937 rnd(rd());
     printf("Starting boot screen...\n");
     Sleep(1234);
-    BIOS();
-    {
-        string dummy;
-        getline(cin, dummy);
-    }
+    if (!BIOS())
+        return false;
     scan_app_folder();
     if (lan == 1) {
         printf("正在启动Caelum OS 1，请稍等...\n");
@@ -399,58 +583,61 @@ void Begin() {
     SetConsoleTextAttribute(hConsole, 0x0B);
     printf("================================Caelum OS 1================================\n");
     SetConsoleTextAttribute(hConsole, 0x07);
+    return true;
 }
 } // namespace other
-
-//系统将在几天后停止支持!!!
-//system will stop supporting in a few days!!!
-//系统将在几天后停止支持!!!
-//system will stop supporting in a few days!!!
-//系统将在几天后停止支持!!!
-//system will stop supporting in a few days!!!
 
 int main() {
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
-    other::Begin();
-    while (1) {
-        for (int i = 1; i <= 100; i++)
-            a[i].clear();
-        getline(cin, s);
-        int len = (int)s.size();
-        while (len > 0 && s[len - 1] == ' ') {
-            len--;
-        }
-        number_v = 1;
-        for (int i = 0; i < len; i++) {
-            if (s[i] == ' ')
-                number_v++;
+    if (!other::Begin())
+        return 0;
+    string line;
+    vector<string> args;
+    while (getline(cin, line)) {
+        if (line.size() > 4096) {
+            if (lan == 1)
+                printf("命令过长。\n");
             else
-                a[number_v] += s[i];
-        }
-        if (number_v == 1 && a[1].empty())
+                printf("Command is too long.\n");
             continue;
-        if (a[1] == "time" && number_v == 1) {
+        }
+        if (!split_command(line, args)) {
+            if (lan == 1)
+                printf("引号未闭合。\n");
+            else
+                printf("Unclosed quote.\n");
+            continue;
+        }
+        if (args.empty())
+            continue;
+
+        if (args[0] == "time" && args.size() == 1) {
             cpu::Time();
-        } else if (a[1] == "exit" && number_v == 1) {
+        } else if (args[0] == "exit" && args.size() == 1) {
             cpu::System_Exit();
-        } else if (a[1] == "clean" && number_v == 1) {
+        } else if (args[0] == "clean" && args.size() == 1) {
             system("cls");
-        } else if (a[1] == "help" && number_v == 1) {
+        } else if (args[0] == "help" && args.size() == 1) {
             cpu::Help();
-        } else if (a[1] == "color") {
-            cpu::Color();
-        } else if (a[1] == "theme") {
-            cpu::Theme();
-        } else if (a[1] == "system") {
-            if (a[2] == "information" && number_v == 2) {
+        } else if (args[0] == "color") {
+            cpu::Color(args);
+        } else if (args[0] == "theme") {
+            cpu::Theme(args);
+        } else if (args[0] == "system" && args.size() == 2) {
+            if (args[1] == "information") {
                 cpu::System_Information();
-            } else if (a[2] == "changelog" && number_v == 2) {
+            } else if (args[1] == "changelog") {
                 cpu::System_Changelog();
+            } else {
+                if (lan == 1)
+                    printf("无效的 system 子命令。\n");
+                else
+                    printf("Invalid system subcommand.\n");
             }
-        } else if (a[1] == "app" && number_v == 1) {
+        } else if (args[0] == "app" && args.size() == 1) {
             cpu::App();
-        } else if (a[1] == "store" && number_v == 1) {
+        } else if (args[0] == "store" && args.size() == 1) {
             cpu::Store();
         } else {
             SetConsoleTextAttribute(hConsole, 0x0C);
@@ -462,12 +649,5 @@ int main() {
             SetConsoleTextAttribute(hConsole, 0x07);
         }
     }
-    system("pause");
     return 0;
 }
-//系统将在几天后停止支持!!!
-//system will stop supporting in a few days!!!
-//系统将在几天后停止支持!!!
-//system will stop supporting in a few days!!!
-//系统将在几天后停止支持!!!
-//system will stop supporting in a few days!!!
